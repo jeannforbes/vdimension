@@ -1,13 +1,96 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
+    <script src="/socket.io/socket.io.js"></script>
     <script src="https://npmcdn.com/babel-core@5.8.38/browser.min.js"></script>
     <script type="text/babel" >
         "use strict";
+
+        let userInfo;
+        let draws = {};
+
+        let canvas;
+        let infocanvas;
+        let buffer;
+
+        let ctx;
+        let infoctx;
+        let bctx;
+
+        let mySquare = {};
+        let images = {};
+
+        const handleMessage = (data) => {
+            let image = new Image();
+
+            image.onload = () => {
+                ctx.save();
+                ctx.drawImage(image, data.x, data.y, data.width, data.height);
+                ctx.restore();
+            }
+            image.src = data.imgData;
+        }
+
+        const connectSocket = () => {
+            let sock = io.connect();
+
+            sock.on('connect', () => {
+                console.log('connecting');
+
+                mySquare.user = sock.id;
+
+                sock.emit('addSquare', mySquare);
+            });
+
+            sock.on('addSquare', function(data){
+                handleMessage(data);
+            });
+        };
+
+        const init = () => {
+            canvas = document.querySelector('#socketCanvas');
+            ctx = canvas.getContext('2d');
+
+            infocanvas = document.querySelector('#infoCanvas');
+            infoctx = infocanvas.getContext('2d');
+
+            buffer = document.querySelector('#buffer');
+            bctx = buffer.getContext('2d');
+
+            userInfo = document.querySelector('#userInfo');
+
+            mySquare = {
+                x: parseInt(Math.random()*100),
+                y: parseInt(Math.random()*100),
+                width: 100,
+                height:50,
+                imgData: '008.png',
+                time: Date.now(),
+                user: '',
+            };
+            let imgNum = parseInt(Math.random()*8)+1;
+            mySquare.imgData = '00'+imgNum+'.png';
+            console.log(mySquare.imgData);
+
+            userInfo.innerHTML = 'MY SQUARE:<br>x: ' + mySquare.x;
+            userInfo.innerHTML += '<br>y: ' + mySquare.y;
+
+            connectSocket();
+        };
+
+        window.onload = init;
     
     </script>
+    <style>
+        img{visibility: hidden;}
+        #buffer{visibility: hidden;}
+    </style>
 </head>
 <body>
-
+<div id='userInfo'>
+</div>
+<canvas id='infoCanvas' style="width:50px;height:50px;position:absolute;"></canvas>
+<canvas id='socketCanvas' style="width:200px;height:200px;"></canvas>
+<canvas id='buffer' style='width:200px;height:200px;'></canvas>
 </body>
 </html>
