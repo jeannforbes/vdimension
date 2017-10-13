@@ -1,5 +1,5 @@
 {
-  "name": "canvas-syncing-assignment-part1",
+  "name": "microwars",
   "version": "1.0.0",
   "description": "",
   "main": "app.js",
@@ -10,14 +10,14 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/jeannforbes/canvas-syncing-assignment-part1.git"
+    "url": "git+https://github.com/jeannforbes/microwars.git"
   },
   "author": "",
   "license": "ISC",
   "bugs": {
-    "url": "https://github.com/jeannforbes/canvas-syncing-assignment-part1/issues"
+    "url": "https://github.com/jeannforbes/microwars/issues"
   },
-  "homepage": "https://github.com/jeannforbes/canvas-syncing-assignment-part1#readme",
+  "homepage": "https://github.com/jeannforbes/microwars#readme",
   "devDependencies": {
     "eslint": "^4.6.1",
     "eslint-config-airbnb": "^15.1.0",
