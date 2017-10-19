@@ -12,8 +12,8 @@ app.get('/', (req, res) => { res.sendFile('index.html', { root: './client' }); }
 app.get('/network.png', (req, res) => { res.sendFile('network.png', { root: './client/images' }); });
 app.get('/mouse.png', (req, res) => { res.sendFile('mouse.png', { root: './client/images' }); });
 
-const COLORS = ['#0074D9', '#FFAA00', '#FF00AA', '#AA00FF', '#00AAFF',
-  '#FF851B', '#F012BE', '#FFDC00', '#DD403A', '#B8B42D'];
+const COLORS = ['blue', 'green', 'yellow', 'red', 'lightgreen', 'orange',
+  'purple', 'pink', 'darkyellow', 'lightblue'];
 const NAMES = ['aphid', 'badger', 'chameleon', 'dingo', 'ermine'];
 
 const FRICTION = new Victor(2, 2);
@@ -22,6 +22,7 @@ const WORLD = {
   HEIGHT: 600,
 };
 const MAX_PLAYERS = 10;
+const MAX_NODE_SIZE = 20;
 
 const rooms = {};
 
@@ -38,7 +39,7 @@ const populate = (room) => {
         (WORLD.HEIGHT / 2) + (200 * Math.random())),
       vel: new Victor(0, 0),
       accel: new Victor(0, 0),
-      isLinked: false,
+      links: 0,
     };
   }
 };
@@ -52,7 +53,7 @@ const updateNodePower = (room) => {
     // If it's being targeted...
     if (nodes[l.target]) {
       if (nodes[l.src].owner === nodes[l.target].owner && nodes[l.src].owner != null) {
-        if (nodes[l.target].power < 30) {
+        if (nodes[l.target].power < MAX_NODE_SIZE) {
           nodes[l.target].power += 1;
         }
       } else if (nodes[l.target].power > 9) { // And the source is an enemy...
@@ -66,7 +67,7 @@ const updateNodePower = (room) => {
   const keys = Object.keys(nodes);
   for (let i = 0; i < keys.length; i++) {
     const n = nodes[keys[i]];
-    if (n.power < 30 && n.owner && !n.isLinked) { n.power += 0.5; }
+    if (n.power < MAX_NODE_SIZE && n.owner && n.links <= 0) { n.power += 0.5; }
   }
 };
 
@@ -108,11 +109,13 @@ const updateGameState = (room) => {
   const users = rooms[room].users;
   const nodes = rooms[room].nodes;
   const links = rooms[room].links;
+  const ghostLinks = rooms[room].ghostLinks;
 
   io.to(room).emit('currentGameState', {
     users,
     nodes,
     links,
+    ghostLinks,
   });
 };
 
@@ -135,6 +138,7 @@ const userJoined = (socket) => {
       users: {},
       nodes: {},
       links: [],
+      ghostLinks: {},
     };
     populate(currentRoom);
 
@@ -163,7 +167,7 @@ const userJoined = (socket) => {
       (WORLD.HEIGHT / 2) + (200 * Math.random())),
     vel: new Victor(0, 0),
     accel: new Victor(0, 0),
-    isLinked: false,
+    links: 0,
   };
 
   // socket.room = currentRoom;
@@ -203,11 +207,28 @@ io.on('connect', (socket) => {
     console.log(`${socket.id} left.`);
   });
 
+  socket.on('ghostLink', (data) => {
+    const room = rooms[Object.keys(socket.rooms)[0]];
+    room.ghostLinks[data.owner] = data;
+  });
+
   socket.on('linkCreated', (data) => {
     const room = rooms[Object.keys(socket.rooms)[0]];
+    const src = room.nodes[data.src];
+    // const target = room.nodes[data.target];
+    const links = room.links;
+
+    if (src.links > 1) {
+      for (let i = 0; i < links.length; i++) {
+        if (links[i].src === src.id) {
+          links.splice(i, 1);
+          i = links.length + 1;
+        }
+      }
+    }
+
     room.links.push(data);
-    room.nodes[data.src].isLinked = true;
-    room.nodes[data.target].isLinked = true;
+    src.links++;
   });
 
   socket.on('linkBroken', (data) => {

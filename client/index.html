@@ -17,6 +17,7 @@
 
         let nodes = {};
         let links = [];
+        let ghostLinks = {};
 
         let selectedNode;
 
@@ -31,7 +32,9 @@
                 sock.on('userInfo', function(data){
                     myUser = data;
                     console.log(data);
-                    document.querySelector('#sidebar').style.backgroundColor = data.color;
+                    document.querySelector('#color').style.backgroundColor = data.color;
+                    document.querySelector('#color').style.borderColor = data.color;
+                    document.querySelector('#room').innerHTML = 'Room: '+data.room;
                 });
 
                 // Update current game state
@@ -39,6 +42,7 @@
                     users = data.users;
                     nodes = data.nodes;
                     links = data.links;
+                    ghostLinks = data.ghostLinks;
                 });
 
                 // Handle user join
@@ -73,7 +77,7 @@
                     let dist = Math.sqrt(Math.pow(mX-n.loc.x,2) + Math.pow(mY-n.loc.y,2));
                     if(dist < n.power && n.owner === sock.id){
                         console.log(n.id);
-                        selectedNode = n;
+                        selectedNode = n.id;
                         break;
                     }
                 }
@@ -88,12 +92,12 @@
                     let n = nodes[keys[i]];
                     let dist = Math.sqrt(Math.pow(mX-n.loc.x,2) + Math.pow(mY-n.loc.y,2));
                     if(dist < n.power){
-                        targetNode = n;
+                        targetNode = n.id;
                         break;
                     }
                 }
                 if(selectedNode && targetNode){
-                    makeLink(selectedNode, targetNode);
+                    makeLink(nodes[selectedNode], nodes[targetNode]);
                 }
 
                 // Regardless, clear everything on mouseup
@@ -103,6 +107,10 @@
             window.onmousemove = function(e){
                 mouse.x = e.clientX;
                 mouse.y = e.clientY;
+
+                if(selectedNode && myUser){
+                    ghostLink(sock.id, nodes[selectedNode].loc, mouse);
+                }
             }
 
             connectSocket();
@@ -110,8 +118,17 @@
             start();
         };
 
+        const ghostLink = (id, src, target) => {
+            sock.emit('ghostLink', {
+                owner: id,
+                src: src, 
+                target: target,
+            });
+        };
+
         const makeLink = (a, b) => {
             sock.emit('linkCreated', {src: a.id, target: b.id});
+            ghostLink(sock.id, null, null);
         };
 
         const breakLink = (link) => {
@@ -131,7 +148,7 @@
         const draw = (ctx) => {
             drawBackground(ctx);
             drawLinks(ctx);
-            drawGhostLink(ctx);
+            drawGhostLinks(ctx);
             drawNodes(ctx);
         };
 
@@ -144,17 +161,22 @@
             ctx.restore();
         };
 
-        const drawGhostLink = (ctx) => {
-            if(selectedNode && myUser){
-                ctx.save();
-                ctx.strokeStyle = myUser.color;
-                ctx.globalAlpha = 0.8;
-                ctx.lineWidth = 5;
-                ctx.beginPath();
-                ctx.moveTo(selectedNode.x, selectedNode.y);
-                ctx.lineTo(mouse.x, mouse.y);
-                ctx.stroke();
-                ctx.restore();
+        const drawGhostLinks = (ctx) => {
+            const ghostKeys = Object.keys(ghostLinks);
+            for(var i=0; i<ghostKeys.length; i++){
+                let gl = ghostLinks[ghostKeys[i]];
+                if(users[gl.owner] && gl.src && gl.target){
+                    ctx.save();
+                    ctx.strokeStyle = users[gl.owner].color;
+                    ctx.globalAlpha = 0.5;
+                    ctx.lineWidth = 5;
+                    ctx.beginPath();
+                    ctx.moveTo(gl.src.x, gl.src.y);
+                    ctx.lineTo(gl.target.x, gl.target.y);
+                    ctx.stroke();
+
+                    ctx.restore();
+                }
             }
         }
 
@@ -205,18 +227,20 @@
             margin:0;
             padding:0;
             font-family: 'Roboto', sans-serif;
+            color: #EEE;
         }
         #sidebar{
             position: absolute;
             height:100%;
             width:250px;
-            background-color: #333;
+            background-color: #36445E;
         }
         #sidebar p{
+            position: relative;
             font-size: 18px;
             padding: 10px;
         }
-        #sidebar img{
+        #sidebar img, #color{
             display: block;
             margin-left: auto;
             margin-right: auto;
@@ -224,6 +248,16 @@
 
             width: 80px;
             height: 80px;
+        }
+        #color{
+
+            border: solid 20px;
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+        }
+        #room{
+            font-size: 14px;
         }
         canvas{
             position: absolute;
@@ -235,14 +269,15 @@
     <canvas></canvas>
     <div id='sidebar'>
         <h1>Node Wars</h1>
-        <p>This is your color.</p>
+        <p>This is your color.<div id='color'></div></p>
         <p>Your color is the best.</p>
-        <p>Attack other colors
+        <p>Attack other colors...
         <img src='mouse.png' alt='mouse.png'>
-        by dragging your mouse to them!</p>
-        <p>Strategize by cutting lines.</p>
+        ...by dragging your mouse to them!</p>
+        <p>Strategize!</p>
         <img src='network.png' alt='network.png'>
         <p>Good luck!</p>
+        <div id='room'></div>
     </div>
 </body>
 </html>
