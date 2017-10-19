@@ -9,13 +9,18 @@ const PORT = process.env.PORT || 3000;
 server.listen(PORT);
 
 app.get('/', (req, res) => { res.sendFile('index.html', { root: './client' }); });
-app.get('/miserables.json', (req, res) => { res.sendFile('miserables.json', { root: './src' }); });
+app.get('/circle_point.png', (req, res) => { res.sendFile('circle_point.png', { root: './client/images' }); });
+app.get('/mouse.png', (req, res) => { res.sendFile('mouse.png', { root: './client/images' }); });
 
-const COLORS = ['#AAFF00','#FFAA00','#FF00AA','#AA00FF','#00AAFF'];
+const COLORS = ['#0074D9','#FFAA00','#FF00AA','#AA00FF','#00AAFF',
+                '#FF851B','#F012BE','#FFDC00','#DD403A','#B8B42D'];
 const NAMES = ['aphid', 'badger', 'chameleon', 'dingo', 'ermine'];
 
 const FRICTION = new Victor(2,2);
-const WORLD_SIZE = 400;
+const WORLD = {
+    WIDTH: 1200,
+    HEIGHT: 600,
+}
 const MAX_PLAYERS = 10;
 
 const rooms = {};
@@ -31,13 +36,13 @@ const randomColor = () => {
 const randomUsername = () => NAMES[parseInt(Math.random() * NAMES.length, 10)];
 
 const populate = (room) => {
-    for(var i=0; i<10; i++){
+    for(var i=0; i<30; i++){
         let newNodeId = crypto.randomBytes(12).toString('hex');
         rooms[room].nodes[newNodeId] = {
             id: newNodeId,
             owner: undefined,
             power: 10,
-            loc: new Victor(WORLD_SIZE/2 + 200*Math.random(),WORLD_SIZE/2 + 200*Math.random()),
+            loc: new Victor(WORLD.WIDTH/2 + 200*Math.random(),WORLD.HEIGHT/2 + 200*Math.random()),
             vel: new Victor(0,0),
             accel: new Victor(0,0),
             isLinked: false,
@@ -54,7 +59,7 @@ const updateNodePower = (room) => {
         // If it's being targeted...
         if(nodes[l.target]){
             // And the source is the same owner...
-            if(nodes[l.src].owner === nodes[l.target].owner){
+            if(nodes[l.src].owner === nodes[l.target].owner && nodes[l.src].owner != null){
                 // Boost its power
                 if(nodes[l.target].power < 30) nodes[l.target].power += 1;
             }
@@ -80,13 +85,13 @@ const forceDigraph = (room) => {
     let nodes = rooms[room].nodes;
     let links = rooms[room].links;
     let keys = Object.keys(rooms[room].nodes);
-    let center = new Victor(WORLD_SIZE/2, WORLD_SIZE/2);
+    let center = new Victor(WORLD.WIDTH/2, WORLD.HEIGHT/2);
 
     for(var i=0; i<keys.length; i++){
         let n = nodes[keys[i]];
 
         // Nodes are attracted to center
-        let vecToCenter = center.clone().subtract(n.loc).divide(new Victor(20,20));
+        let vecToCenter = center.clone().subtract(n.loc).divide(new Victor(10,10));
         n.accel.add(vecToCenter);
 
         // Nodes are repulsed by other nodes
@@ -156,7 +161,7 @@ const userJoined = (socket) => {
         room: currentRoom,
         id: socket.id,
         isPlaying: true,
-        color: COLORS[COLORS.length-1],
+        color: COLORS[Object.keys(rooms[currentRoom].users).length],
         username: randomUsername(),
     };
 
@@ -165,7 +170,7 @@ const userJoined = (socket) => {
         id: newNodeId,
         owner: socket.id,
         power: 10,
-        loc: new Victor(WORLD_SIZE/2 + 200*Math.random(),WORLD_SIZE/2 + 200*Math.random()),
+        loc: new Victor(WORLD.WIDTH/2 + 200*Math.random(),WORLD.HEIGHT/2 + 200*Math.random()),
         vel: new Victor(0,0),
         accel: new Victor(0,0),
         isLinked: false,
@@ -174,7 +179,7 @@ const userJoined = (socket) => {
     //socket.room = currentRoom;
     socket.leave(socket.id);
     socket.join(currentRoom);
-    socket.to(currentRoom).emit('userInfo', rooms[currentRoom].users[socket.id]);
+    socket.emit('userInfo', rooms[currentRoom].users[socket.id]);
     socket.to(currentRoom).broadcast.emit('userJoined', rooms[currentRoom].users[socket.id]);
 };
 

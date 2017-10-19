@@ -26,12 +26,12 @@
             sock = io.connect();
 
             sock.on('connect', () => {
-                console.log('connecting');
 
                 // Get your user's info
                 sock.on('userInfo', function(data){
                     myUser = data;
-                    console.log(sock.rooms);
+                    console.log(data);
+                    document.querySelector('#sidebar').style.backgroundColor = data.color;
                 });
 
                 // Update current game state
@@ -199,11 +199,37 @@
         window.onload = init;
     
     </script>
+    <link href="https://fonts.googleapis.com/css?family=Roboto" rel="stylesheet">
     <style>
-        *{margin:0;padding:0;}
+        *{
+            margin:0;
+            padding:0;
+            font-family: 'Roboto', sans-serif;
+        }
+        #sidebar{
+            position: absolute;
+            height:100%;
+            width:200px;
+            background-color: #333;
+        }
+        canvas{
+            position: absolute;
+            left: 0px;
+        }
     </style>   
 </head>
 <body>
     <canvas></canvas>
+    <div id='sidebar'>
+        <h1>Node Wars</h1>
+        <p>This is your color.</p>
+        <p>Your color is the best.</p>
+        <p>Attack other colors</p>
+        <p>by dragging your mouse to them!</p>
+        <img src='mouse.png' alt='mouse.png'>
+        <p>Strategize by cutting lines.</p>
+        <img src='circle_point.png' alt='circle_point.png'>
+        <p>Good luck!</p>
+    </div>
 </body>
 </html>
