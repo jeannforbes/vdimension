@@ -7,19 +7,21 @@
     <script type="text/babel" >
         "use strict";
 
+        let sock;
+
         let canvas;
         let ctx;
 
         let myUser = undefined;
         let users = {};
 
-        let nodes = [];
+        let nodes = {};
         let links = [];
 
         let selectedNode;
 
         const connectSocket = () => {
-            let sock = io.connect();
+            sock = io.connect();
 
             sock.on('connect', () => {
                 console.log('connecting');
@@ -63,10 +65,12 @@
                 // If the mouse is inside a node
                 let mX = e.clientX;
                 let mY = e.clientY;
-                for(var i=0; i<nodes.length; i++){
-                    let n = nodes[i];
-                    let dist = Math.sqrt(Math.pow(mX-n.x,2) + Math.pow(mY-n.y,2));
-                    if(dist < n.power){
+                let keys = Object.keys(nodes);
+                for(var i=0; i<keys.length; i++){
+                    let n = nodes[keys[i]];
+                    let dist = Math.sqrt(Math.pow(mX-n.loc.x,2) + Math.pow(mY-n.loc.y,2));
+                    if(dist < n.power && n.owner === sock.id){
+                        console.log(n.id);
                         selectedNode = n;
                         break;
                     }
@@ -75,9 +79,12 @@
 
             window.onmouseup = function(e){
                 let targetNode;
-                for(var i=0; i<nodes.length; i++){
-                    let n = nodes[i];
-                    let dist = Math.sqrt(Math.pow(mX-n.x,2) + Math.pow(mY-n.y,2));
+                let mX = e.clientX;
+                let mY = e.clientY;
+                let keys = Object.keys(nodes);
+                for(var i=0; i<keys.length; i++){
+                    let n = nodes[keys[i]];
+                    let dist = Math.sqrt(Math.pow(mX-n.loc.x,2) + Math.pow(mY-n.loc.y,2));
                     if(dist < n.power){
                         targetNode = n;
                         break;
@@ -86,11 +93,22 @@
                 if(selectedNode && targetNode){
                     makeLink(selectedNode, targetNode);
                 }
+
+                // Regardless, clear everything on mouseup
+                selectedNode = targetNode = null;
             }
 
             connectSocket();
 
             start();
+        };
+
+        const makeLink = (a, b) => {
+            sock.emit('linkCreated', {src: a.id, target: b.id});
+        };
+
+        const breakLink = (link) => {
+            sock.emit('linkBroken', link);
         };
 
         const start = () => {
@@ -112,34 +130,59 @@
         const drawBackground = (ctx) => {
             ctx.save();
 
-            ctx.fillStyle = 'darkblue';
+            ctx.fillStyle = 'black';
             ctx.fillRect(0,0,canvas.width,canvas.height);
 
             ctx.restore();
         };
 
-        const drawLinks = (ctx) => {
+        const drawGhostLink = (x1, y1, x2, y2, ctx) => {
+            ctx.save();
+            ctx.strokeStyle = myUser.color;
+            ctx.globalAlpha = 0.8;
+            ctx.lineWidth = 5;
+            ctx.beginPath();
+            ctx.moveTo(nodes[l.src].loc.x, nodes[l.src].loc.y);
+            ctx.lineTo(nodes[l.target].loc.x, nodes[l.target].loc.y);
+            ctx.stroke();
+            ctx.restore();
+        }
 
+        const drawLinks = (ctx) => {
+            for(var i=0; i<links.length; i++){
+                let l = links[i];
+                ctx.save();
+                ctx.strokeStyle = (nodes[l.src] && users[nodes[l.src].owner]) ? users[nodes[l.src].owner].color : 'gray';
+                ctx.lineWidth = 5;
+                ctx.beginPath();
+                ctx.moveTo(nodes[l.src].loc.x, nodes[l.src].loc.y);
+                ctx.lineTo(nodes[l.target].loc.x, nodes[l.target].loc.y);
+                ctx.stroke();
+                ctx.restore();
+            }
         };
 
         const drawNodes = (ctx) => {
-            for(var i=0; i<nodes.length; i++){
-                let n = nodes[i];
+            let keys = Object.keys(nodes);
+            for(var i=0; i<keys.length; i++){
+                let n = nodes[keys[i]];
+                let npow = (n.power > 10) ? n.power : 10;
                 ctx.save();
                 ctx.fillStyle = (n.owner) ? users[n.owner].color : 'gray';
                 ctx.beginPath();
-                ctx.arc(n.x, n.y, n.power, 0, Math.PI*2);
+                ctx.arc(n.loc.x, n.loc.y, npow, 0, Math.PI*2);
                 ctx.fill();
                 ctx.restore();
-            }
 
-            if(selectedNode){
-                ctx.save();
-                ctx.strokeStyle = 'white';
-                ctx.beginPath();
-                ctx.arc(selectedNode.x, selectedNode.y, selectedNode.power, 0, Math.PI*2);
-                ctx.stroke();
-                ctx.restore();
+                if(selectedNode && n.id === selectedNode.id){
+                    ctx.save();
+                    ctx.strokeStyle = 'white';
+                    ctx.lineWidth = 3;
+                    ctx.beginPath();
+                    ctx.arc(n.x, n.loc.y, npow, 0, Math.PI*2);
+                    ctx.stroke();
+                    ctx.restore();
+                }
             }
         };
 

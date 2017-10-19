@@ -4,7 +4,7 @@
   "description": "",
   "main": "app.js",
   "scripts": {
-    "start": "node ./src/app.js",
+    "start": "nodemon ./src/app.js",
     "pretest": "eslint ./src --fix",
     "test": "echo \"Tests complete\""
   },
@@ -21,7 +21,8 @@
   "devDependencies": {
     "eslint": "^4.6.1",
     "eslint-config-airbnb": "^15.1.0",
-    "eslint-plugin-import": "^2.7.0"
+    "eslint-plugin-import": "^2.7.0",
+    "nodemon": "^1.12.1"
   },
   "dependencies": {
     "express": "^4.15.5",
