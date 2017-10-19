@@ -9,7 +9,7 @@ const PORT = process.env.PORT || 3000;
 server.listen(PORT);
 
 app.get('/', (req, res) => { res.sendFile('index.html', { root: './client' }); });
-app.get('/circle_point.png', (req, res) => { res.sendFile('circle_point.png', { root: './client/images' }); });
+app.get('/network.png', (req, res) => { res.sendFile('network.png', { root: './client/images' }); });
 app.get('/mouse.png', (req, res) => { res.sendFile('mouse.png', { root: './client/images' }); });
 
 const COLORS = ['#0074D9', '#FFAA00', '#FF00AA', '#AA00FF', '#00AAFF',
