@@ -11,13 +11,14 @@ server.listen(PORT);
 app.get('/', (req, res) => { res.sendFile('index.html', { root: './client' }); });
 app.get('/miserables.json', (req, res) => { res.sendFile('miserables.json', { root: './src' }); });
 
+const COLORS = ['#AAFF00','#FFAA00','#FF00AA','#AA00FF','#00AAFF'];
 const NAMES = ['aphid', 'badger', 'chameleon', 'dingo', 'ermine'];
+
 const FRICTION = new Victor(2,2);
 const WORLD_SIZE = 400;
+const MAX_PLAYERS = 10;
 
-const users = {};
-const nodes = {};
-const links = [];
+const rooms = {};
 
 const randomColor = () => {
   const r = parseInt(Math.random() * 156 + 100, 10);
@@ -29,7 +30,24 @@ const randomColor = () => {
 
 const randomUsername = () => NAMES[parseInt(Math.random() * NAMES.length, 10)];
 
-const updateNodePower = () => {
+const populate = (room) => {
+    for(var i=0; i<10; i++){
+        let newNodeId = crypto.randomBytes(12).toString('hex');
+        rooms[room].nodes[newNodeId] = {
+            id: newNodeId,
+            owner: undefined,
+            power: 10,
+            loc: new Victor(WORLD_SIZE/2 + 200*Math.random(),WORLD_SIZE/2 + 200*Math.random()),
+            vel: new Victor(0,0),
+            accel: new Victor(0,0),
+            isLinked: false,
+        };
+    }
+}
+
+const updateNodePower = (room) => {
+    let links = rooms[room].links;
+    let nodes = rooms[room].nodes;
     for(var i=0; i<links.length; i++){
         let l = links[i];
 
@@ -58,8 +76,10 @@ const updateNodePower = () => {
     }
 }
 
-const forceDigraph = () => {
-    let keys = Object.keys(nodes);
+const forceDigraph = (room) => {
+    let nodes = rooms[room].nodes;
+    let links = rooms[room].links;
+    let keys = Object.keys(rooms[room].nodes);
     let center = new Victor(WORLD_SIZE/2, WORLD_SIZE/2);
 
     for(var i=0; i<keys.length; i++){
@@ -88,28 +108,60 @@ const forceDigraph = () => {
     }
 };
 
-const updateGameState = () => {
+const updateGameState = (room) => {
 
-    forceDigraph();
+    forceDigraph(room);
+    let users = rooms[room].users;
+    let nodes = rooms[room].nodes;
+    let links = rooms[room].links;
 
-    io.emit('currentGameState', {
-      users,
-      nodes,
-      links,
+    io.to(room).emit('currentGameState', {
+        users: users,
+        nodes: nodes,
+        links: links,
     });
 };
 
 const userJoined = (socket) => {
+    let roomKeys = Object.keys(rooms);
+    let currentRoom = undefined;
 
-    users[socket.id] = {
+    // Find a room that isn't full
+    for(var i=0; i<roomKeys.length; i++){
+        let room = rooms[roomKeys[i]];
+        if(Object.keys(room.users).length < MAX_PLAYERS){
+            currentRoom = roomKeys[i];
+        }
+    }
+
+    // Make a new room if all rooms are full
+    if(currentRoom === undefined){
+        currentRoom = crypto.randomBytes(10).toString('hex');
+        rooms[currentRoom] = {
+            users: {},
+            nodes: {},
+            links: [],
+        }
+        populate(currentRoom);
+
+        // Send periodic game state updates to clients
+        setInterval(function(){updateGameState(currentRoom);}, 100);
+
+        // Increase nodes' power so often
+        setInterval(function(){updateNodePower(currentRoom);}, 500);
+        console.log("Current room " +currentRoom);
+    }
+
+    rooms[currentRoom].users[socket.id] = {
+        room: currentRoom,
         id: socket.id,
         isPlaying: true,
-        color: randomColor(),
+        color: COLORS[COLORS.length-1],
         username: randomUsername(),
     };
 
     let newNodeId = crypto.randomBytes(12).toString('hex');
-    nodes[newNodeId] = {
+    rooms[currentRoom].nodes[newNodeId] = {
         id: newNodeId,
         owner: socket.id,
         power: 10,
@@ -119,39 +171,49 @@ const userJoined = (socket) => {
         isLinked: false,
     };
 
-    socket.emit('userInfo', users[socket.id]);
-    socket.broadcast.emit('userJoined', users[socket.id]);
-    updateGameState();
+    //socket.room = currentRoom;
+    socket.leave(socket.id);
+    socket.join(currentRoom);
+    socket.to(currentRoom).emit('userInfo', rooms[currentRoom].users[socket.id]);
+    socket.to(currentRoom).broadcast.emit('userJoined', rooms[currentRoom].users[socket.id]);
 };
-
-// Send periodic game state updates to clients
-setInterval(updateGameState, 100);
-
-// Increase nodes' power so often
-setInterval(updateNodePower, 500);
 
 io.on('connect', (socket) => {
     userJoined(socket);
 
     socket.on('disconnect', () => {
-        delete users[socket.id];
+
+        // Since it gets rid of the socket's rooms immediately, gotta find it manually
+        let roomKeys = Object.keys(rooms);
+        let room = undefined;
+        for(var i=0; i<roomKeys.length; i++){
+            let users = rooms[roomKeys[i]].users;
+            if(users[socket.id]){
+                delete users[socket.id]
+                room = rooms[roomKeys[i]];
+                break;
+            }
+        }
 
         // Un-own any leftover nodes
-        let keys = Object.keys(nodes);
+        let keys = Object.keys(room.nodes);
         for (let i = 0; i < keys.length; i++) {
-            const n = nodes[keys[i]];
+            const n = room.nodes[keys[i]];
             if (n.owner === socket.id) n.owner = null;
         }
 
-        io.emit('userLeft', {
+        io.to(room.id).emit('userLeft', {
             id: socket.id,
         });
+
+        console.log(socket.id + ' left.');
     });
 
     socket.on('linkCreated', (data) => {
-        links.push(data);
-        nodes[data.src].isLinked = true;
-        nodes[data.target].isLinked = true;
+        let room = rooms[Object.keys(socket.rooms)[0]];
+        room.links.push(data);
+        room.nodes[data.src].isLinked = true;
+        room.nodes[data.target].isLinked = true;
     });
 
     socket.on('linkBroken', (data) => {

@@ -20,6 +20,8 @@
 
         let selectedNode;
 
+        let mouse = {x: 0, y: 0};
+
         const connectSocket = () => {
             sock = io.connect();
 
@@ -29,7 +31,7 @@
                 // Get your user's info
                 sock.on('userInfo', function(data){
                     myUser = data;
-                    console.log(data);
+                    console.log(sock.rooms);
                 });
 
                 // Update current game state
@@ -98,6 +100,11 @@
                 selectedNode = targetNode = null;
             }
 
+            window.onmousemove = function(e){
+                mouse.x = e.clientX;
+                mouse.y = e.clientY;
+            }
+
             connectSocket();
 
             start();
@@ -124,6 +131,7 @@
         const draw = (ctx) => {
             drawBackground(ctx);
             drawLinks(ctx);
+            drawGhostLink(ctx);
             drawNodes(ctx);
         };
 
@@ -136,16 +144,18 @@
             ctx.restore();
         };
 
-        const drawGhostLink = (x1, y1, x2, y2, ctx) => {
-            ctx.save();
-            ctx.strokeStyle = myUser.color;
-            ctx.globalAlpha = 0.8;
-            ctx.lineWidth = 5;
-            ctx.beginPath();
-            ctx.moveTo(nodes[l.src].loc.x, nodes[l.src].loc.y);
-            ctx.lineTo(nodes[l.target].loc.x, nodes[l.target].loc.y);
-            ctx.stroke();
-            ctx.restore();
+        const drawGhostLink = (ctx) => {
+            if(selectedNode && myUser){
+                ctx.save();
+                ctx.strokeStyle = myUser.color;
+                ctx.globalAlpha = 0.8;
+                ctx.lineWidth = 5;
+                ctx.beginPath();
+                ctx.moveTo(selectedNode.x, selectedNode.y);
+                ctx.lineTo(mouse.x, mouse.y);
+                ctx.stroke();
+                ctx.restore();
+            }
         }
 
         const drawLinks = (ctx) => {
