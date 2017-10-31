@@ -1,23 +1,23 @@
 {
-  "name": "microwars",
+  "name": "vdimension",
   "version": "1.0.0",
   "description": "",
   "main": "app.js",
   "scripts": {
-    "start": "node ./src/app.js",
+    "start": "nodemon ./src/app.js",
     "pretest": "eslint ./src --fix",
     "test": "echo \"Tests complete\""
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/jeannforbes/microwars.git"
+    "url": "git+https://github.com/jeannforbes/vdimension.git"
   },
   "author": "",
   "license": "ISC",
   "bugs": {
-    "url": "https://github.com/jeannforbes/microwars/issues"
+    "url": "https://github.com/jeannforbes/vdimension/issues"
   },
-  "homepage": "https://github.com/jeannforbes/microwars#readme",
+  "homepage": "https://github.com/jeannforbes/vdimension#readme",
   "devDependencies": {
     "eslint": "^4.6.1",
     "eslint-config-airbnb": "^15.1.0",

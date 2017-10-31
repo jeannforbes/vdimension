@@ -1,226 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <script src="/socket.io/socket.io.js"></script>
-    <script src="https://npmcdn.com/babel-core@5.8.38/browser.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/d3/3.5.17/d3.min.js"></script>
-    <script type="text/babel" >
-        "use strict";
-
-        let sock;
-
-        let canvas;
-        let ctx;
-
-        let myUser = undefined;
-        let users = {};
-
-        let nodes = {};
-        let links = [];
-        let ghostLinks = {};
-
-        let selectedNode;
-
-        let mouse = {x: 0, y: 0};
-
-        const connectSocket = () => {
-            sock = io.connect();
-
-            sock.on('connect', () => {
-
-                // Get your user's info
-                sock.on('userInfo', function(data){
-                    myUser = data;
-                    console.log(data);
-                    document.querySelector('#color').style.backgroundColor = data.color;
-                    document.querySelector('#color').style.borderColor = data.color;
-                    document.querySelector('#room').innerHTML = 'Room: '+data.room;
-                });
-
-                // Update current game state
-                sock.on('currentGameState', function(data){
-                    users = data.users;
-                    nodes = data.nodes;
-                    links = data.links;
-                    ghostLinks = data.ghostLinks;
-                });
-
-                // Handle user join
-                sock.on('userJoined', function(data){
-                    users[data.id] = data;
-                    console.log(data.id + ' joined.')
-                });
-
-                // Handle user disconnect
-                sock.on('userLeft', function(data){
-                    delete users[data.id];
-                    console.log(data.id+ ' left.');
-                });
-            });
-        };
-
-
-
-        const init = () => {
-            canvas = document.querySelector('canvas');
-            canvas.width = window.innerWidth;
-            canvas.height = window.innerHeight;
-            ctx = canvas.getContext('2d');
-
-            window.onmousedown = function(e){
-                // If the mouse is inside a node
-                let mX = e.clientX;
-                let mY = e.clientY;
-                let keys = Object.keys(nodes);
-                for(var i=0; i<keys.length; i++){
-                    let n = nodes[keys[i]];
-                    let dist = Math.sqrt(Math.pow(mX-n.loc.x,2) + Math.pow(mY-n.loc.y,2));
-                    if(dist < n.power && n.owner === sock.id){
-                        console.log(n.id);
-                        selectedNode = n.id;
-                        break;
-                    }
-                }
-            };
-
-            window.onmouseup = function(e){
-                let targetNode;
-                let mX = e.clientX;
-                let mY = e.clientY;
-                let keys = Object.keys(nodes);
-                for(var i=0; i<keys.length; i++){
-                    let n = nodes[keys[i]];
-                    let dist = Math.sqrt(Math.pow(mX-n.loc.x,2) + Math.pow(mY-n.loc.y,2));
-                    if(dist < n.power){
-                        targetNode = n.id;
-                        break;
-                    }
-                }
-                if(selectedNode && targetNode){
-                    makeLink(nodes[selectedNode], nodes[targetNode]);
-                }
-
-                // Regardless, clear everything on mouseup
-                selectedNode = targetNode = null;
-            }
-
-            window.onmousemove = function(e){
-                mouse.x = e.clientX;
-                mouse.y = e.clientY;
-
-                if(selectedNode && myUser){
-                    ghostLink(sock.id, nodes[selectedNode].loc, mouse);
-                }
-            }
-
-            connectSocket();
-
-            start();
-        };
-
-        const ghostLink = (id, src, target) => {
-            sock.emit('ghostLink', {
-                owner: id,
-                src: src, 
-                target: target,
-            });
-        };
-
-        const makeLink = (a, b) => {
-            sock.emit('linkCreated', {src: a.id, target: b.id});
-            ghostLink(sock.id, null, null);
-        };
-
-        const breakLink = (link) => {
-            sock.emit('linkBroken', link);
-        };
-
-        const start = () => {
-            tick();
-        };
-
-        const tick = () => {
-            draw(ctx);
-
-            window.requestAnimationFrame(tick);
-        };
-
-        const draw = (ctx) => {
-            drawBackground(ctx);
-            drawLinks(ctx);
-            drawGhostLinks(ctx);
-            drawNodes(ctx);
-        };
-
-        const drawBackground = (ctx) => {
-            ctx.save();
-
-            ctx.fillStyle = 'black';
-            ctx.fillRect(0,0,canvas.width,canvas.height);
-
-            ctx.restore();
-        };
-
-        const drawGhostLinks = (ctx) => {
-            const ghostKeys = Object.keys(ghostLinks);
-            for(var i=0; i<ghostKeys.length; i++){
-                let gl = ghostLinks[ghostKeys[i]];
-                if(users[gl.owner] && gl.src && gl.target){
-                    ctx.save();
-                    ctx.strokeStyle = users[gl.owner].color;
-                    ctx.globalAlpha = 0.5;
-                    ctx.lineWidth = 5;
-                    ctx.beginPath();
-                    ctx.moveTo(gl.src.x, gl.src.y);
-                    ctx.lineTo(gl.target.x, gl.target.y);
-                    ctx.stroke();
-
-                    ctx.restore();
-                }
-            }
-        }
-
-        const drawLinks = (ctx) => {
-            for(var i=0; i<links.length; i++){
-                let l = links[i];
-                ctx.save();
-                ctx.strokeStyle = (nodes[l.src] && users[nodes[l.src].owner]) ? users[nodes[l.src].owner].color : 'gray';
-                ctx.lineWidth = 5;
-                ctx.beginPath();
-                ctx.moveTo(nodes[l.src].loc.x, nodes[l.src].loc.y);
-                ctx.lineTo(nodes[l.target].loc.x, nodes[l.target].loc.y);
-                ctx.stroke();
-                ctx.restore();
-            }
-        };
-
-        const drawNodes = (ctx) => {
-            let keys = Object.keys(nodes);
-            for(var i=0; i<keys.length; i++){
-                let n = nodes[keys[i]];
-                let npow = (n.power > 10) ? n.power : 10;
-                ctx.save();
-                ctx.fillStyle = (n.owner) ? users[n.owner].color : 'gray';
-                ctx.beginPath();
-                ctx.arc(n.loc.x, n.loc.y, npow, 0, Math.PI*2);
-                ctx.fill();
-                ctx.restore();
-
-                if(selectedNode && n.id === selectedNode.id){
-                    ctx.save();
-                    ctx.strokeStyle = 'white';
-                    ctx.lineWidth = 3;
-                    ctx.beginPath();
-                    ctx.arc(n.x, n.loc.y, npow, 0, Math.PI*2);
-                    ctx.stroke();
-                    ctx.restore();
-                }
-            }
-        };
-
-        window.onload = init;
-    
-    </script>
     <link href="https://fonts.googleapis.com/css?family=Roboto" rel="stylesheet">
     <style>
         *{
@@ -229,55 +9,110 @@
             font-family: 'Roboto', sans-serif;
             color: #EEE;
         }
-        #sidebar{
-            position: absolute;
-            height:100%;
-            width:250px;
-            background-color: #36445E;
-        }
-        #sidebar p{
-            position: relative;
-            font-size: 18px;
-            padding: 10px;
-        }
-        #sidebar img, #color{
-            display: block;
-            margin-left: auto;
-            margin-right: auto;
-            padding: 10px;
-
-            width: 80px;
-            height: 80px;
-        }
-        #color{
-
-            border: solid 20px;
-            width: 20px;
-            height: 20px;
-            border-radius: 50%;
-        }
-        #room{
-            font-size: 14px;
-        }
-        canvas{
-            position: absolute;
-            left: 0px;
-        }
     </style>   
 </head>
 <body>
-    <canvas></canvas>
-    <div id='sidebar'>
-        <h1>Node Wars</h1>
-        <p>This is your color.<div id='color'></div></p>
-        <p>Your color is the best.</p>
-        <p>Attack other colors...
-        <img src='mouse.png' alt='mouse.png'>
-        ...by dragging your mouse to them!</p>
-        <p>Strategize!</p>
-        <img src='network.png' alt='network.png'>
-        <p>Good luck!</p>
-        <div id='room'></div>
-    </div>
+    <canvas id='canvas'></canvas>
 </body>
+
+<script src="/main.js"></script>
+<script src="/socket.io/socket.io.js"></script>
+<script src="https://npmcdn.com/babel-core@5.8.38/browser.min.js"></script>
+<script> //type="text/babel" >
+    "use strict";
+
+    let socket;
+
+    let canvas;
+    let ctx;
+
+    let camera;
+
+    let data;
+
+    const init = () => {
+        canvas = document.querySelector('#canvas');
+        ctx = canvas.getContext('2d');
+
+        canvas.width = window.innerWidth;
+        canvas.height = window.innerHeight;
+
+        camera = new Camera(canvas.width, canvas.height);
+
+        socket = io.connect();
+
+        socket.on('update', (newData) => {
+            data = newData;
+        });
+
+        canvas.onmousemove = (e) => {
+            let mouseLoc = camera.cameraToWorld(new Vector(e.clientX, e.clientY));
+            socket.emit('onmousemove', {
+                x: mouseLoc.x,
+                y: mouseLoc.y,
+            });
+        }
+
+        window.onmousewheel = document.onmousewheel = preventDefault; // older browsers, IE
+        window.ontouchmove  = preventDefault; // mobile
+
+        window.onmousewheel = (e) => {
+            socket.emit('onscroll', {});
+            e.preventDefault();
+            return false;
+        }
+
+        window.onkeydown = (e) => {
+            switch(e.keyCode){
+                case 73:
+                    if(data) console.log(data);
+                    break;
+                default:
+                    break;
+            }
+        }
+
+        draw();
+    };
+
+    const draw = () => {
+        let _this = this;
+        camera.dimension = findDimensionById(socket.id);
+        if(camera.dimension) camera.player = camera.dimension.players[socket.id];
+        camera.render(ctx, data);
+
+        window.requestAnimationFrame(draw.bind(_this));
+    }
+
+    const findPlayerById = (id) => {
+        if(!data) return;
+        let keys = Object.keys(data.dimensions);
+        for(let i=0; i<keys.length; i++){
+            let d = data.dimensions[keys[i]];
+            if(d.players[id]) return d.players[id];
+        }
+        return false;
+    }
+
+    const findDimensionById = (id) => {
+        if(!data) return;
+        let keys = Object.keys(data.dimensions);
+        for(let i=0; i<keys.length; i++){
+            let d = data.dimensions[keys[i]];
+            if(d.players[id]) return d;
+        }
+        return false;
+    }
+
+    const preventDefault = (e) => {
+      e = e || window.event;
+      if (e.preventDefault)
+          e.preventDefault();
+      e.returnValue = false;  
+    }
+
+    window.onload = init;
+
+</script>
+
 </html>
