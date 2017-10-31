@@ -1,20 +1,19 @@
-let PBody = require('./pbody.js').PBody;
-let Victor = require('victor');
+const PBody = require('./pbody.js').PBody;
 
-class Particle{
-    constructor(id){
-        this.id = id;
-        this.color = 'red';
+class Particle {
+  constructor(id) {
+    this.id = id;
+    this.color = 'red';
 
-        this.phaseChance = 0.001;
+    this.phaseChance = 0.001;
 
-        this.pbody = new PBody();
-        this.pbody.maxVel = 5;
-    }
+    this.pbody = new PBody();
+    this.pbody.maxVel = 5;
+  }
 
-    update(){
-        this.pbody.move();
-    }
+  update() {
+    this.pbody.move();
+  }
 }
 
 module.exports.Particle = Particle;
