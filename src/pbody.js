@@ -19,6 +19,9 @@ class PBody {
     this.colliding = false;
   }
 
+  setLocX(v) { this.loc.x = v; }
+  setLocY(v) { this.loc.y = v; }
+
   applyForce(force) {
     const f = force.clone();
     f.x /= this.mass;
@@ -49,7 +52,7 @@ class PBody {
 
   // Push objects away from each other on collision
   collide(cbody) {
-    if(this.colliding){
+    if (this.colliding) {
       const dist = this.loc.distance(cbody.loc);
       const force = this.loc.clone().subtract(cbody.loc).normalize();
       force.x *= 1000 / dist;
@@ -60,44 +63,45 @@ class PBody {
   }
 
   // Check for collision between rects
-  collideRectvRect(cbody, cb){
+  collideRectvRect(cbody, cb) {
     let colX = false;
     let colY = false;
-    if(this.loc.x < cbody.loc.x && 
-      (this.loc.x + this.mass) > (cbody.loc.x - this.mass))
+    if (this.loc.x < cbody.loc.x &&
+      (this.loc.x + this.mass) > (cbody.loc.x - this.mass)) {
       colX = true;
-    else if(this.loc.x > cbody.loc.x && 
-           (this.loc.x - this.mass) < (cbody.loc.x + this.mass))
+    } else if (this.loc.x > cbody.loc.x &&
+           (this.loc.x - this.mass) < (cbody.loc.x + this.mass)) {
       colX = true;
-    if(this.loc.y < cbody.loc.y && 
-      (this.loc.y + this.mass) > (cbody.loc.y - this.mass))
-      colY = true;
-    else if(this.loc.y > cbody.loc.y && 
-           (this.loc.y - this.mass) < (cbody.loc.y + this.mass))
-      colY = true;
-    if(colY && colX) {
-      this.colliding = true;
-      if(cb) cb();
     }
-    else this.colliding = false;
+    if (this.loc.y < cbody.loc.y &&
+      (this.loc.y + this.mass) > (cbody.loc.y - this.mass)) {
+      colY = true;
+    } else if (this.loc.y > cbody.loc.y &&
+           (this.loc.y - this.mass) < (cbody.loc.y + this.mass)) {
+      colY = true;
+    }
+    if (colY && colX) {
+      this.colliding = true;
+      if (cb) cb();
+    } else this.colliding = false;
   }
 
   // Check for collision between spheres
-  collideSpherevSphere(cbody, cb){
+  collideSpherevSphere(cbody, cb) {
     const dist = this.loc.distance(cbody.loc);
-    if(dist < this.mass + cbody.mass){
+    if (dist < this.mass + cbody.mass) {
       this.colliding = true;
-      if(cb) cb();
-    }
-    else this.colliding = false;
+      if (cb) cb();
+    } else this.colliding = false;
   }
 
   // Are we colliding?
   isColliding(cbody, cb) {
-    if(this.collider === COLLIDER.SPHERE)
+    if (this.collider === COLLIDER.SPHERE) {
       this.collideSpherevSphere(cbody, cb);
-    else if(this.collider === COLLIDER.RECT)
+    } else if (this.collider === COLLIDER.RECT) {
       this.collideRectvRect(cbody, cb);
+    }
   }
 }
 

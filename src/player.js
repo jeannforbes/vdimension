@@ -8,10 +8,10 @@ class Player {
 
     this.pbody = new PBody();
     this.pbody.loc = new Victor(100, 100);
-    this.pbody.mass = parseInt(Math.random() * 10) + 10;
+    this.pbody.mass = parseInt(Math.random() * 10, 10) + 10;
 
     this.color = 'blue';
-    this.name = global.NAMES[parseInt(Math.random()*global.NAMES.length, 10)];
+    this.name = global.NAMES[parseInt(Math.random() * global.NAMES.length, 10)];
 
     this.mouseLoc = new Victor(this.pbody.loc.x, this.pbody.loc.y);
   }

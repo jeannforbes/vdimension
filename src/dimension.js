@@ -35,16 +35,16 @@ class Dimension {
     this.particles = {};
     this.players = {};
 
-    this.loc = new Victor(offset*Math.random(),offset*Math.random());
+    this.loc = new Victor(offset * Math.random(), offset * Math.random());
 
-    this.w = 600 + (Math.random()*200);
-    this.h = 400 + (Math.random()*100);
-    this.friction = 0.90 + (Math.random()*0.11);
+    this.w = 600 + (Math.random() * 200);
+    this.h = 400 + (Math.random() * 100);
+    this.friction = 0.90 + (Math.random() * 0.11);
 
     this.color = randomColor();
-    this.colliderType = (Math.random() > 0.5) ? "RECT" : "SPHERE";
+    this.colliderType = (Math.random() > 0.5) ? 'RECT' : 'SPHERE';
 
-    this.populate(parseInt((Math.random() * 10)+10, 10));
+    this.populate(parseInt((Math.random() * 10) + 10, 10));
   }
 
   update() {
@@ -63,47 +63,48 @@ class Dimension {
     });
   }
 
-  handlePlayerCollisions(){
-    if(global.hunter.id){
-      let pKeys = Object.keys(this.players);
-      for(let i=0; i<pKeys.length; i++){
-        let p1 = this.players[pKeys[i]];
+  handlePlayerCollisions() {
+    if (global.hunter.id) {
+      const pKeys = Object.keys(this.players);
+      for (let i = 0; i < pKeys.length; i++) {
+        const p1 = this.players[pKeys[i]];
         // We only care about the hunter
-        if(p1.id !== global.hunter.id) continue;
-        // Loop through all possible players we can collide with
-        for(let k=0; k<pKeys.length; k++){
-          let p2 = this.players[pKeys[k]];
-          // Make sure they're not the same player
-          if(p1.id === p2.id) continue;
-          if(Date.now() < global.hunter.timestamp + 5000) continue;
-          p1.pbody.isColliding(p2.pbody, () => {
-            console.log("NEW HUNTER!!!");
-            global.hunter = {
-              id: p2.id,
-              name: p2.name,
-              color: p2.color,
-              timestamp: Date.now(),
-            };
-          });
+        if (p1.id === global.hunter.id) {
+          // Loop through all possible players we can collide with
+          for (let k = 0; k < pKeys.length; k++) {
+            const p2 = this.players[pKeys[k]];
+            // Make sure they're not the same player
+            if (!global.hunter.timestamp) global.hunter.timestamp = Date.now();
+            if (p1.id !== p2.id && Date.now() > global.hunter.timestamp + 5000) {
+              p1.pbody.isColliding(p2.pbody, () => {
+                global.hunter = {
+                  id: p2.id,
+                  name: p2.name,
+                  color: p2.color,
+                  timestamp: Date.now(),
+                };
+              });
+            }
+          }
         }
       }
     }
   }
 
-  keepInBounds(pbody){
-    if (pbody.loc.x > this.w - pbody.mass+this.loc.x){
+  keepInBounds(pbody) {
+    if (pbody.loc.x > (this.w - pbody.mass) + this.loc.x) {
       pbody.vel.multiply(new Victor(-1, 1));
-      pbody.loc.x = this.w - pbody.mass - 1 + this.loc.x;
-    } else if(pbody.loc.x < pbody.mass+this.loc.x) {
+      pbody.setLocX(((this.w - pbody.mass) - 1) + this.loc.x);
+    } else if (pbody.loc.x < pbody.mass + this.loc.x) {
       pbody.vel.multiply(new Victor(-1, 1));
-      pbody.loc.x = pbody.mass + 1 + this.loc.x;
+      pbody.setLocX(pbody.mass + 1 + this.loc.x);
     }
-    if (pbody.loc.y > this.h - pbody.mass+this.loc.y) {
+    if (pbody.loc.y > (this.h - pbody.mass) + this.loc.y) {
       pbody.vel.multiply(new Victor(1, -1));
-      pbody.loc.y = this.h - pbody.mass - 1 + this.loc.y;
-    } else if(pbody.loc.y < pbody.mass+this.loc.y) {
+      pbody.setLocY((this.h - pbody.mass - 1) + this.loc.y);
+    } else if (pbody.loc.y < pbody.mass + this.loc.y) {
       pbody.vel.multiply(new Victor(1, -1));
-      pbody.loc.y = pbody.mass + 1 + this.loc.y;
+      pbody.setLocY(pbody.mass + 1 + this.loc.y);
     }
   }
 

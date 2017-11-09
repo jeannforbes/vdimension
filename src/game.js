@@ -15,11 +15,11 @@ const loop = (map, func) => {
 };
 
 const randomColor = (max, min) => {
-  let mmax = max || 256;
-  let mmin = min || 0;
-  const r = parseInt((Math.random() * (mmax-mmin)) + mmin, 10);
-  const g = parseInt((Math.random() * (mmax-mmin)) + mmin, 10);
-  const b = parseInt((Math.random() * (mmax-mmin)) + mmin, 10);
+  const mmax = max || 256;
+  const mmin = min || 0;
+  const r = parseInt((Math.random() * (mmax - mmin)) + mmin, 10);
+  const g = parseInt((Math.random() * (mmax - mmin)) + mmin, 10);
+  const b = parseInt((Math.random() * (mmax - mmin)) + mmin, 10);
   return `rgb(${r},${g},${b})`;
 };
 
@@ -58,14 +58,14 @@ class Game {
       this.dimensions[newP.dimId].players[socket.id] = newP;
       newP.color = this.dimensions[newP.dimId].color;
       newP.pbody.collider = this.dimensions[newP.dimId].colliderType;
-      newP.pbody.loc.x = Math.random()*300+100;
-      newP.pbody.loc.y = Math.random()*300+100;
+      newP.pbody.loc.x = (Math.random() * 300) + 100;
+      newP.pbody.loc.y = (Math.random() * 300) + 100;
 
       // Do we need to start the game?
-      if(!global.hunter || !global.hunter.id) this.assignHunter();
+      if (!global.hunter || !global.hunter.id) this.assignHunter();
       // Let's give them a starting score of 0
-      let newPColor = randomColor(256, 100);
-      if(!this.scores[socket.id]){
+      const newPColor = randomColor(256, 100);
+      if (!this.scores[socket.id]) {
         this.scores[socket.id] = {
           name: newP.name,
           score: 0,
@@ -73,7 +73,7 @@ class Game {
         };
       }
 
-      socket.emit('playerInfo', {name:newP.name, color: newPColor});
+      socket.emit('playerInfo', { name: newP.name, color: newPColor });
 
       socket.on('onmousemove', (data) => {
         const p = this.findPlayerById(socket.id);
@@ -90,26 +90,25 @@ class Game {
         socket.join(d.next);
 
         // Swap player into a new dimension if it's within bounds
-        let swapD = this.dimensions[d.next];
-        if(p.pbody.loc.x > swapD.loc.x && p.pbody.loc.x < swapD.loc.x+swapD.w &&
-           p.pbody.loc.y > swapD.loc.y && p.pbody.loc.y < swapD.loc.y+swapD.h){
-          let swapP = new Player(socket.id, d.next);
+        const swapD = this.dimensions[d.next];
+        if (p.pbody.loc.x > swapD.loc.x && p.pbody.loc.x < swapD.loc.x + swapD.w &&
+           p.pbody.loc.y > swapD.loc.y && p.pbody.loc.y < swapD.loc.y + swapD.h) {
+          const swapP = new Player(socket.id, d.next);
           swapP.pbody.loc = p.pbody.loc.clone();
           swapP.pbody.collider = swapD.colliderType;
           swapP.color = swapD.color;
           swapP.mouseLoc = p.mouseLoc;
           this.dimensions[d.next].players[socket.id] = swapP;
           delete d.players[socket.id];
-          console.log(socket.id+` swapping to ${d.next}`);
-        } else { 
-          socket.emit('flash', {color: 'red', duration: 200});
-          socket.emit('message', {msg: 'get inside the next dimension first!'});
+          console.log(`${socket.id} swapping to ${d.next}`);
+        } else {
+          socket.emit('flash', { color: 'red', duration: 200 });
+          socket.emit('message', { msg: 'get inside the next dimension first!' });
         }
       });
 
       socket.on('disconnect', () => {
-        if(socket.id === global.hunter.id){
-          console.log('hunter disconnecting');
+        if (socket.id === global.hunter.id) {
           this.assignHunter();
         }
 
@@ -129,10 +128,12 @@ class Game {
       });
     });
 
-    if (!this.updateInterval) { 
-      this.updateInterval = setInterval(this.update.bind(this), 100); }
-    if (!this.updateScoresInterval) { 
-      this.updateScoresInterval = setInterval(this.updateScores.bind(this), 1000); }
+    if (!this.updateInterval) {
+      this.updateInterval = setInterval(this.update.bind(this), 100);
+    }
+    if (!this.updateScoresInterval) {
+      this.updateScoresInterval = setInterval(this.updateScores.bind(this), 1000);
+    }
   }
 
   update() {
@@ -146,10 +147,10 @@ class Game {
 
       // Particles don't stay in just one place, or one room!
       loop(d.particles, (p) => {
-        let swapD = this.dimensions[d.next];
+        const swapD = this.dimensions[d.next];
         if (Math.random() < p.phaseChance &&
-            p.pbody.loc.x > swapD.loc.x && p.pbody.loc.x < swapD.loc.x+swapD.w &&
-            p.pbody.loc.y > swapD.loc.y && p.pbody.loc.y < swapD.loc.y+swapD.h) {
+            p.pbody.loc.x > swapD.loc.x && p.pbody.loc.x < swapD.loc.x + swapD.w &&
+            p.pbody.loc.y > swapD.loc.y && p.pbody.loc.y < swapD.loc.y + swapD.h) {
           const newP = new Particle(p.id);
           newP.pbody = p.pbody;
           newP.pbody.collider = swapD.colliderType;
@@ -162,14 +163,13 @@ class Game {
     });
   }
 
-  assignHunter(p){
-    let pKeys = Object.keys(this.io.sockets.sockets);
-    if(!p && Object.keys(this.io.sockets.sockets).length > 1 && global.hunter){
-      console.log(pKeys);
-      global.hunter.id = pKeys[parseInt(Math.random()*pKeys.length,10)];
+  assignHunter(p) {
+    const pKeys = Object.keys(this.io.sockets.sockets);
+    if (!p && Object.keys(this.io.sockets.sockets).length > 1 && global.hunter) {
+      global.hunter.id = pKeys[parseInt(Math.random() * pKeys.length, 10)];
       global.hunter.name = this.findPlayerById(global.hunter.id).name;
       global.hunter.color = this.findPlayerById(global.hunter.id).color;
-    } else if(p){
+    } else if (p) {
       global.hunter.id = p.id;
       global.hunter.name = p.name;
       global.hunter.color = p.color;
@@ -182,12 +182,11 @@ class Game {
     }
   }
 
-  updateScores(){
-    if(global.hunter && global.hunter.id){
-      let pKeys = Object.keys(this.io.sockets.sockets);
-      for(let i=0; i<pKeys.length; i++){
-        if(!this.scores[pKeys[i]]) continue;
-        if(pKeys[i] !== global.hunter.id) {
+  updateScores() {
+    if (global.hunter && global.hunter.id) {
+      const pKeys = Object.keys(this.io.sockets.sockets);
+      for (let i = 0; i < pKeys.length; i++) {
+        if (this.scores[pKeys[i]] && pKeys[i] !== global.hunter.id) {
           this.scores[pKeys[i]].score++;
         }
       }

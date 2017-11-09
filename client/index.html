@@ -165,17 +165,11 @@
                 if(data) console.log(data);
                 break;
                 case 187: // +
-                camera.scale += 0.5;
-                camera.centerOn( new Vector(
-                    camera.dimension.players[socket.id].pbody.loc.x,
-                    camera.dimension.players[socket.id].pbody.loc.y));
+                camera.scale += 0.2;
                 break;
                 case 189: // -
-                if(camera.scale >= 1){
-                    camera.scale -= 0.5;
-                    camera.centerOn( new Vector(
-                        camera.dimension.players[socket.id].pbody.loc.x,
-                        camera.dimension.players[socket.id].pbody.loc.y));
+                if(camera.scale > 0.5){
+                    camera.scale -= 0.2;
                 }
                 break
                 case 220: // \
@@ -236,7 +230,6 @@
             if(!d) continue;
             if(sec.score < d.score && fir.score > d.score) sec = d;
         }
-        console.log(maxScores);
         maxScores.push(sec);
         return maxScores;
     }
@@ -246,7 +239,6 @@
         if(!data) return;
         if(!data.hunter || !data.hunter.id) statusMsg.innerHTML = 'Waiting for players...';
         else if(data.hunter.id !== hunter){
-            console.log(data.hunter.name);
             hunter = data.hunter.id;
             statusMsg.innerHTML = '';
             if(data.hunter.id === socket.id){
