@@ -129,7 +129,7 @@ class Game {
     });
 
     if (!this.updateInterval) {
-      this.updateInterval = setInterval(this.update.bind(this), 100);
+      this.updateInterval = setInterval(this.update.bind(this), 50);
     }
     if (!this.updateScoresInterval) {
       this.updateScoresInterval = setInterval(this.updateScores.bind(this), 1000);
