@@ -2,35 +2,69 @@
 <html lang="en">
 <head>
     <link href="https://fonts.googleapis.com/css?family=Roboto" rel="stylesheet">
-    <style>
-        *{
-            margin:0;
-            padding:0;
-            font-family: 'Roboto', sans-serif;
-            color: #EEE;
-        }
-    </style>   
+    <link href='/style.css' rel='stylesheet'>
 </head>
 <body>
+    <p id='msg'>...</p>
     <canvas id='canvas'></canvas>
+    <div id='info'>
+        <div id='leaderboard'>
+            LEADERBOARD
+            <ol id='leaderlist'>
+            </ol>
+        </div>
+        <div id='status'>
+            <p id='statusMsg'>Something went wrong!</p>
+            <p id='statusTimer'></p>
+        </div>
+        <div id='instructions'>
+            <p style='color:#FFF;'>Everyone is camouflaged!</p>
+            <p style='color:#EEE;'>Someone is IT and looking for YOU, 
+                <span id='playerName'></span>!
+            </p>
+            <p style='color:#DDD;'>You can see yourself outlined in white</p>
+            <p style='color:#CCC;'>The longer you stay hidden, the higher your score!</p>
+            <p style='color:#BBB;'>Scroll or press SPACE to shift dimensions</p>
+            <p style='color:#AAA;'>Press 'c' to toggle camera tracking</p>
+            <p style='color:#999;'>Or use WASD to move it yourself!</p>
+            <p style='color:#888;'> + / - control zoom</p>
+        </div>
+    </div>
 </body>
 
 <script src="/main.js"></script>
 <script src="/socket.io/socket.io.js"></script>
 <script src="https://npmcdn.com/babel-core@5.8.38/browser.min.js"></script>
-<script type="text/babel" >
+<script>// type="text/babel" >
     "use strict";
 
     let socket;
 
     let canvas;
     let ctx;
+    let leaderboard;
+    let status, statusMsg, statusTimer;
+    let instructions;
+    let msg;
 
     let camera;
 
     let data;
+    let newData;
+
+    let hunter;
+
+    const HUNT_LINES = [' is on the prowl...', ' is looking for you!', ' is on the hunt.',
+                        ' is out for blood', ' wants to make a friend', ' needs a hug',
+                        ' is ready to put a ring on it', ' wants to reach out and touch you'];
 
     const init = () => {
+        leaderboard = document.querySelector('#leaderlist');
+        status = document.querySelector('#status');
+        statusMsg = document.querySelector('#statusMsg');
+        statusTimer = document.querySelector('#statusTimer');
+        instructions = document.querySelector('#instructions');
+        msg = document.querySelector('#msg');
         canvas = document.querySelector('#canvas');
         ctx = canvas.getContext('2d');
 
@@ -41,8 +75,30 @@
 
         socket = io.connect();
 
-        socket.on('update', (newData) => {
+        socket.on('playerInfo', (data) => {
+            document.querySelector('#playerName').innerHTML = data.name;
+            document.querySelector('#playerName').style.color = data.color;
+        });
+
+        socket.on('update', (currentData) => {
             data = newData;
+            newData = currentData;
+
+            updateLeaderboard(data);
+            updateStatus(data);
+        });
+
+        socket.on('flash', (data) => {
+            console.log('flash '+data.color);
+            camera.flashPlayerColor = data.color;
+            setTimeout(()=>{camera.flashPlayerColor = undefined;}, data.duration);
+        });
+
+        socket.on('message', (data) => {
+            console.log('msg: '+data.msg);
+            msg.innerHTML = data.msg;
+            msg.style.display = 'inline';
+            setTimeout(()=>{msg.style.display='none';},2000)
         });
 
         canvas.onmousemove = (e) => {
@@ -51,57 +107,178 @@
                 x: mouseLoc.x,
                 y: mouseLoc.y,
             });
+            msg.style.left = e.clientX + 'px';
+            msg.style.top = e.clientY + 'px';
         }
 
-        window.onmousewheel = document.onmousewheel = preventDefault; // older browsers, IE
-        window.ontouchmove  = preventDefault; // mobile
+        canvas.onmousewheel = document.onmousewheel = preventDefault; // older browsers, IE
+        canvas.ontouchmove  = preventDefault; // mobile
 
-        window.onmousewheel = (e) => {
+        canvas.onmousewheel = (e) => {
             socket.emit('onscroll', {});
             e.preventDefault();
             return false;
         }
 
-        window.onkeydown = (e) => {
+        window.onkeyup = (e) => {
             switch(e.keyCode){
-                case 73:
-                    if(data) console.log(data);
-                    break;
+                case 87: // w
+                camera.moving.up = false;
+                break;
+                case 65: // a
+                camera.moving.left = false;
+                break;
+                case 83: // s
+                camera.moving.down = false;
+                break;
+                case 68: // d
+                camera.moving.right = false;
+                break;
                 default:
-                    break;
+                break;
             }
         }
 
+        window.onkeydown = (e) => {
+            switch(e.keyCode){
+                case 87: // w
+                camera.moving.up = true;
+                break;
+                case 65: // a
+                camera.moving.left = true;
+                break;
+                case 83: // s
+                camera.moving.down = true;
+                break;
+                case 68: // d
+                camera.moving.right = true;
+                break;
+                case 32: // space
+                socket.emit('onscroll', {});
+                e.preventDefault();
+                return false;
+                break;
+                case 67: // c
+                camera.centering = !camera.centering;
+                break;
+                case 73: // i
+                if(data) console.log(data);
+                break;
+                case 187: // +
+                camera.scale += 0.5;
+                camera.centerOn( new Vector(
+                    camera.dimension.players[socket.id].pbody.loc.x,
+                    camera.dimension.players[socket.id].pbody.loc.y));
+                break;
+                case 189: // -
+                if(camera.scale >= 1){
+                    camera.scale -= 0.5;
+                    camera.centerOn( new Vector(
+                        camera.dimension.players[socket.id].pbody.loc.x,
+                        camera.dimension.players[socket.id].pbody.loc.y));
+                }
+                break
+                case 220: // \
+                camera.debug = !camera.debug;
+                break;
+                default:
+                break;
+            }
+        }
+
+        // Slowly reveal instructions
+        let revealInterval = setInterval(() => { revealInstruction(); }, 2000);
+        setTimeout(() => {clearInterval(revealInterval);}, 
+            instructions.children.length*2000+100);
+
         draw();
+    };
+
+    const revealInstruction = () => {
+        let ps = instructions.children;
+        for(let i=0; i<ps.length; i++){
+            let p = ps[i];
+            if(p.style.display !== 'inline'){
+                p.style.display = 'inline';
+                return;
+            }
+        }
+    }
+
+    const updateLeaderboard = (data) => {
+        if(!data) return;
+        if(data.scores){
+            let sortedScores = [];
+            sortedScores = findMaxScores(data);
+            leaderboard.innerHTML = '';
+            for(let i=0; i<sortedScores.length;i++){
+                let d = sortedScores[i];
+                if(d.name) leaderboard.innerHTML += '<li>'
+                    +'<span style="color:'+d.color+';">'+d.name
+                    +'</span>: '+d.score+'</li>';
+            }
+        }
+    };
+
+    const findMaxScores = (data) => {
+        let keys = Object.keys(data.scores);
+        let fir = {score: 0};
+        let sec = {score: 0};
+        let maxScores = [];
+        for(let i=0; i<keys.length && i<3; i++){
+            let d = data.scores[keys[i]];
+            if(!d) continue;
+            if(fir.score < d.score) fir = d;
+        }
+        maxScores.push(fir);
+        for(let i=0; i<keys.length && i<3; i++){
+            let d = data.scores[keys[i]];
+            if(!d) continue;
+            if(sec.score < d.score && fir.score > d.score) sec = d;
+        }
+        console.log(maxScores);
+        maxScores.push(sec);
+        return maxScores;
+    }
+
+    const updateStatus = (data) => {
+        let timeUntilTag;
+        if(!data) return;
+        if(!data.hunter || !data.hunter.id) statusMsg.innerHTML = 'Waiting for players...';
+        else if(data.hunter.id !== hunter){
+            console.log(data.hunter.name);
+            hunter = data.hunter.id;
+            statusMsg.innerHTML = '';
+            if(data.hunter.id === socket.id){
+                statusMsg.innerHTML = 'YOU\'RE IT!';
+            } else {
+                statusMsg.innerHTML = '<p style="color:'+data.hunter.color+
+                                   ';">'+data.hunter.name+
+                                   '</p>'+randomFromArray(HUNT_LINES);
+            }
+        }
+
+        timeUntilTag = parseInt((data.hunter.timestamp + 5000 - Date.now())/1000);
+
+        if(data.hunter.id === socket.id && timeUntilTag) {
+            if(timeUntilTag < 0)
+                        statusTimer.innerHTML = '\nTAG SOMEONE!';
+            else
+                statusTimer.innerHTML = '\nYou can tag someone in '+timeUntilTag+' secs';
+        } else statusTimer.innerHTML = '';
     };
 
     const draw = () => {
         let _this = this;
         camera.dimension = findDimensionById(socket.id);
         if(camera.dimension) camera.player = camera.dimension.players[socket.id];
-        camera.render(ctx, data);
+        camera.render(ctx, data, newData);
+        if(camera.moving.left) camera.loc.x -= 5 * camera.scale;
+        else if(camera.moving.right) camera.loc.x += 5 * camera.scale;
+        if(camera.moving.up) camera.loc.y -= 5 * camera.scale;
+        else if(camera.moving.down) camera.loc.y += 5 * camera.scale;
 
         window.requestAnimationFrame(draw.bind(_this));
-    }
-
-    const findPlayerById = (id) => {
-        if(!data) return;
-        let keys = Object.keys(data.dimensions);
-        for(let i=0; i<keys.length; i++){
-            let d = data.dimensions[keys[i]];
-            if(d.players[id]) return d.players[id];
-        }
-        return false;
-    }
-
-    const findDimensionById = (id) => {
-        if(!data) return;
-        let keys = Object.keys(data.dimensions);
-        for(let i=0; i<keys.length; i++){
-            let d = data.dimensions[keys[i]];
-            if(d.players[id]) return d;
-        }
-        return false;
     }
 
     const preventDefault = (e) => {
@@ -109,6 +286,10 @@
       if (e.preventDefault)
           e.preventDefault();
       e.returnValue = false;  
+    }
+
+    const randomFromArray = (arr) => {
+        return arr[parseInt(Math.random()*arr.length, 10)];
     }
 
     window.onload = init;

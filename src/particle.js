@@ -5,7 +5,7 @@ class Particle {
     this.id = id;
     this.color = 'red';
 
-    this.phaseChance = 0.001;
+    this.phaseChance = 0.005;
 
     this.pbody = new PBody();
     this.pbody.maxVel = 5;
